@@ -4,7 +4,6 @@ package packet
 
 import (
 	"net"
-	"fmt"
 )
 
 type Packet struct {
