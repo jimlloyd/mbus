@@ -25,10 +25,8 @@ func Listen(conn *net.UDPConn, incoming chan<- Packet) error {
 		data := make([]byte, 8192)
 		size, remote, err := conn.ReadFrom(data)
 		if err != nil {
-			fmt.Println("Panic:", err)
 			panic(err)
 		}
-		fmt.Println("Debug: Received packet from remote:", remote)
 		incoming <- Packet{data[0:size], remote}
 	}
 }
