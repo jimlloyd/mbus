@@ -1,8 +1,10 @@
+// receiver.go
+
 package receiver
 // A multicast receiver, i.e. subscriber.
-// I'm using the name receiver here because this is mostly an experiment while learning Go.
-// However, I do intend to implement a message bus subscriber based on what I learn here.
-
+// I'm using the name receiver here because this is mostly an experiment while learning Go,
+// but also because this is a primitive form of subscriber. The ultimate subscriber
+// may be a layer on top of receiver.
 //--------------------------------------------------------------------------------------------------
 
 import (
@@ -10,12 +12,17 @@ import (
 	"fmt"
 	"github.com/jimlloyd/mbus/packet"
 	"github.com/jimlloyd/mbus/utils"
+	"github.com/jimlloyd/mbus/receiver/sendersmap"
 )
 
 type Receiver struct {
 	messageConn *net.UDPConn	// for receiving messages multicast from senders
 	controlConn *net.UDPConn	// for sending commands to senders and receiving their responses
-	messages    chan packet.Packet
+
+	incoming    chan packet.Packet 	// message packets received but not yet analyzed/sequenced
+	sequenced	chan packet.Packet  // message packets sequenced and ready for application to process
+
+	senders 	*sendersmap.SendersMap
 }
 
 func NewReceiver(mcastAddress string) (*Receiver, error) {
@@ -46,8 +53,13 @@ func NewReceiver(mcastAddress string) (*Receiver, error) {
 	// 4. Detect duplicate packets and drop them.
 	// 5. Optionally hold future packets for delivery in correct sequence.
 
-	receiver.messages = make(chan packet.Packet, 10)
-	go packet.Listen(receiver.messageConn, receiver.messages)
+	receiver.senders = sendersmap.New()
+
+	receiver.incoming = make(chan packet.Packet, 10)
+	receiver.sequenced = make(chan packet.Packet, 10)
+
+	go receiver.AnalyzeAndSequence()
+	go packet.Listen(receiver.messageConn, receiver.incoming)
 
 	return receiver, nil
 }
@@ -55,13 +67,14 @@ func NewReceiver(mcastAddress string) (*Receiver, error) {
 func (receiver *Receiver) Close() error {
 	err1 := receiver.messageConn.Close()
 	err2 := receiver.controlConn.Close()
-	close(receiver.messages)
+	close(receiver.incoming)
+	close(receiver.sequenced)
 	if (err1 != nil) { return err1 }
 	return err2
 }
 
 func (receiver *Receiver) MessagesChannel() <-chan packet.Packet {
-	return receiver.messages
+	return receiver.sequenced
 }
 
 type TruncatedError struct {
@@ -77,4 +90,17 @@ func (receiver *Receiver) SendCommand(command []byte, addr net.Addr) error {
 		return TruncatedError{}
 	}
 	return err
+}
+
+func (receiver *Receiver) AnalyzeAndSequence() {
+	for {
+		packet := <-receiver.incoming
+		fmt.Println("Analyzing a packet")
+
+		senderInfo := receiver.senders.Get(packet.Remote().String())
+		senderInfo.Count++
+		fmt.Println("Received", senderInfo.Count, "packets from", senderInfo.Addr)
+
+		receiver.sequenced <- packet
+	}
 }
