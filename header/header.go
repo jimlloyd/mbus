@@ -1,7 +1,12 @@
 // header.go
 
 package header
-// Header is the data prefixed to all mbus packets.
+// Header data is prefixed to to application message payloads to form mbus packets.
+
+import (
+	"bytes"
+	"encoding/binary"
+)
 
 const (
 	Invalid = iota
@@ -32,11 +37,49 @@ func (self *CommonHeader) Valid() bool {
 	return self.Signature == mbusSignature
 }
 
-func (self *CommonHeader) MessageType() uint16 {
-	return self.MsgType
+func (self *CommonHeader) MessageType() (uint16, error) {
+	if !self.Valid() {
+		return Invalid, InvalidHeaderError{}
+	}
+	return self.MsgType, nil
 }
 
-func (self *MessageHeader) GetSequence() uint32 {
-	return self.Sequence
+func (self *MessageHeader) GetSequence() (uint32, error) {
+	if !self.Valid() || self.MsgType!=Message {
+		return Invalid, InvalidHeaderError{}
+	}
+	return self.Sequence, nil
 }
+
+// Encode the header into a new bytes.Buffer.
+// Returns a Buffer so that application message payload can be appended.
+func (self *MessageHeader) Encode() (*bytes.Buffer, error) {
+	buf := new(bytes.Buffer)
+	if !self.Valid() || self.MsgType!=Message {
+		return buf, InvalidHeaderError{}
+	}
+	err := binary.Write(buf, binary.LittleEndian, *self)
+	return buf, err
+}
+
+// Decode the header from the bytes slice into this MessageHeader.
+// Returns the Buffer so that application message payload can be retrieved.
+func (self *MessageHeader) Decode(packetData []byte) (*bytes.Buffer, error) {
+	buf := bytes.NewBuffer(packetData)
+	err := binary.Read(buf, binary.LittleEndian, self)
+	if err==nil {
+		if !self.Valid() || self.MsgType!=Message {
+			return buf, InvalidHeaderError{}
+		}
+	}
+	return buf, err
+}
+
+type InvalidHeaderError struct {
+}
+
+func (InvalidHeaderError) Error() string {
+	return "Not a valid mbus header"
+}
+
 

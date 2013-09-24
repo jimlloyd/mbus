@@ -15,11 +15,34 @@ func TestMakeMessageHeader(t *testing.T) {
 		t.Fail()
 	}
 
-	if h.MessageType() != Message {
+	msgType, err := h.MessageType()
+	if err != nil {
+		t.Fail()
+	}
+	if msgType != Message {
 		t.Fail()
 	}
 
-	if h.GetSequence() != seq {
+	xseq, err := h.GetSequence()
+	if err != nil {
+		t.Fail()
+	}
+	if xseq != seq {
+		t.Fail()
+	}
+
+	buf, err := h.Encode()
+	if err != nil {
+		t.Fail()
+	}
+
+	var x MessageHeader
+	buf, err = x.Decode(buf.Bytes())
+	if err != nil {
+		t.Fail()
+	}
+
+	if h != x {
 		t.Fail()
 	}
 }
