@@ -37,6 +37,10 @@ func (self *CommonHeader) Valid() bool {
 	return self.Signature == mbusSignature
 }
 
+func (self *MessageHeader) Valid() bool {
+	return self.Signature == mbusSignature && self.MsgType == Message
+}
+
 func (self *CommonHeader) MessageType() (uint16, error) {
 	if !self.Valid() {
 		return Invalid, InvalidHeaderError{}

@@ -45,4 +45,26 @@ func TestMakeMessageHeader(t *testing.T) {
 	if h != x {
 		t.Fail()
 	}
+
+	x.Signature = [4]byte{23} // just some invalid signature
+	if x.Valid() {
+		t.Error("Header with invalid Signature is considered valid")
+	}
+
+	_, err = x.Encode()
+	if err == nil {
+		t.Error("Header with invalid Signature encodes without returning an error")
+	}
+
+	x.Signature = mbusSignature // restore the signature so following tests only test MsgType
+
+	x.MsgType = 99 // just some invalid value
+	if x.Valid() {
+		t.Error("Header with invalid MsgType is considered valid")
+	}
+
+	_, err = x.Encode()
+	if err == nil {
+		t.Error("Header with invalid MsgType encodes without returning an error")
+	}
 }
