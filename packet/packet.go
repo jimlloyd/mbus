@@ -7,12 +7,8 @@ import (
 )
 
 type Packet struct {
-	data   []byte
+	Data   []byte
 	remote net.Addr
-}
-
-func (packet Packet) Data() []byte {
-	return packet.data
 }
 
 func (packet Packet) Remote() net.Addr {

@@ -8,8 +8,10 @@ package receiver
 //--------------------------------------------------------------------------------------------------
 
 import (
+	"bytes"
 	"net"
 	"fmt"
+	"github.com/jimlloyd/mbus/header"
 	"github.com/jimlloyd/mbus/packet"
 	"github.com/jimlloyd/mbus/utils"
 	"github.com/jimlloyd/mbus/receiver/sendersmap"
@@ -101,6 +103,24 @@ func (receiver *Receiver) AnalyzeAndSequence() {
 		senderInfo.Count++
 		fmt.Println("Received", senderInfo.Count, "packets from", senderInfo.Addr)
 
-		receiver.sequenced <- packet
+		var head header.MessageHeader
+
+		buf := bytes.NewBuffer(packet.Data)
+		buf, err := head.Decode(buf.Bytes())
+		if err != nil {
+			fmt.Println("Dropping invalid packet. Header:", head, "Error:", err)
+		} else {
+			packet.Data = buf.Bytes()
+			payloadLen := uint32(len(packet.Data))
+
+			// this is just a hack for now
+			// TODO: implement correct wrap around logic
+			// TODO: check for missing packets
+			nextSeq := head.Sequence + payloadLen
+			senderInfo.ReceivedTo = uint64(nextSeq)
+
+			receiver.sequenced <- packet
+		}
+
 	}
 }

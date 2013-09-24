@@ -15,6 +15,8 @@ type SenderInfo struct {
 	// we don't really care about the count, but it's useful now for development/debugging
 	Count	int
 
+	ReceivedTo	uint64
+
 	// other fields we'll probably track:
 	// 1. Sequence number delivered to
 	// 2. Sequence number received to
@@ -47,7 +49,7 @@ func (self *SendersMap) Get(addr string) *SenderInfo {
 	self.lock.Lock()
 	info, ok = self.rep[addr]
 	if !ok {
-		info = &SenderInfo{addr, 0}
+		info = &SenderInfo{addr, 0, 0}
 		self.rep[addr] = info
 		fmt.Println("Adding new address", addr, "to map:", info)
 	}

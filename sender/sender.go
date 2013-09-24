@@ -8,6 +8,7 @@ package sender
 import (
 	"net"
 	"fmt"
+	"github.com/jimlloyd/mbus/header"
 	"github.com/jimlloyd/mbus/packet"
 	"github.com/jimlloyd/mbus/utils"
 )
@@ -15,6 +16,7 @@ import (
 type Sender struct {
 	conn *net.UDPConn
 	mcast *net.UDPAddr
+	sentTo	uint32
 }
 
 func NewSender(mcastAddress string) (*Sender, error) {
@@ -46,8 +48,24 @@ func (sender *Sender) Close() error {
 	return sender.conn.Close()
 }
 
-func (sender *Sender) Send(message []byte) (int, error) {
-	return sender.conn.WriteToUDP(message, sender.mcast)
+func (sender *Sender) Send(payload []byte) (int, error) {
+
+	h := header.MakeMessageHeader(sender.sentTo)
+	buf, err := h.Encode()
+	if err != nil {
+		return 0, err
+	}
+
+	buf.Write(payload)
+	message := buf.Bytes()
+
+	n, err := sender.conn.WriteToUDP(message, sender.mcast)
+	if err != nil {
+		return 0, err
+	}
+	sender.sentTo += uint32(len(payload))
+
+	return n, err
 }
 
 func (sender *Sender) serveCommand(commands <-chan packet.Packet) {
@@ -55,7 +73,7 @@ func (sender *Sender) serveCommand(commands <-chan packet.Packet) {
 		packet := <-commands
 
 		// We'll eventually respond to meaningful commands, but for now just log them.
-		fmt.Println("Received command", len(packet.Data()), "bytes:", string(packet.Data()),
+		fmt.Println("Received command", len(packet.Data), "bytes:", string(packet.Data),
 			"Remote:", packet.Remote())
 	}
 }

@@ -27,7 +27,7 @@ func main() {
 
 	for {
 		packet := <-incoming
-		fmt.Println("Read", len(packet.Data()), "bytes:", string(packet.Data()), "Remote:",
+		fmt.Println("Read", len(packet.Data), "bytes:", string(packet.Data), "Remote:",
 			packet.Remote())
 		
 		err := receiver.SendCommand([]byte("Dummy command"), packet.Remote())
