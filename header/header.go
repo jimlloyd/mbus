@@ -20,10 +20,16 @@ type MessageType uint16  // One of the constants above
 
 var mbusSignature = [4]byte{'m', 'b', 'u', 's'}
 
+type MbusHeader interface {
+	Valid() bool
+	MessageType() (MessageType, error)
+	Encode() (*bytes.Buffer, error)
+}
+
 type CommonHeader struct {
 	// all fields are specified as byte arrays, with bytes in network byte order (big endian)
 	Signature	[4]byte	// a constant signature, 'mbus'
-	MsgType		MessageType 
+	MsgType		MessageType
 }
 
 type MessageHeader struct {
@@ -94,70 +100,52 @@ func (self *MessageHeader) GetSequence() (uint32, error) {
 	return self.Sequence, nil
 }
 
+func encodeImpl(self MbusHeader) (*bytes.Buffer, error) {
+	buf := new(bytes.Buffer)
+	if !self.Valid() {
+		return buf, InvalidHeaderError{}
+	}
+	err := binary.Write(buf, binary.LittleEndian, self)
+	return buf, err
+}
+
 // Encode the header into a new bytes.Buffer.
 // Returns a Buffer so that application message payload can be appended.
 func (self *MessageHeader) Encode() (*bytes.Buffer, error) {
-	buf := new(bytes.Buffer)
-	if !self.Valid() || self.MsgType!=Message {
-		return buf, InvalidHeaderError{}
-	}
-	err := binary.Write(buf, binary.LittleEndian, *self)
-	return buf, err
+	return encodeImpl(self)
 }
 
-// TODO: Yes, I should declare an interface so that I could write an EncodeImpl
-// that works for all three message types.
 func (self *RequestHeader) Encode() (*bytes.Buffer, error) {
-	buf := new(bytes.Buffer)
-	if !self.Valid() || self.MsgType!=Request {
-		return buf, InvalidHeaderError{}
-	}
-	err := binary.Write(buf, binary.LittleEndian, *self)
-	return buf, err
+	return encodeImpl(self)
 }
 
 func (self *ResponseHeader) Encode() (*bytes.Buffer, error) {
-	buf := new(bytes.Buffer)
-	if !self.Valid() || self.MsgType!=Response {
-		return buf, InvalidHeaderError{}
+	return encodeImpl(self)
+}
+
+func decodeImpl(self MbusHeader, packetData []byte) (*bytes.Buffer, error) {
+	buf := bytes.NewBuffer(packetData)
+	err := binary.Read(buf, binary.LittleEndian, self)
+	if err==nil {
+		if !self.Valid() {
+			return buf, InvalidHeaderError{}
+		}
 	}
-	err := binary.Write(buf, binary.LittleEndian, *self)
 	return buf, err
 }
 
 // Decode the header from the bytes slice into this MessageHeader.
 // Returns the Buffer so that application message payload can be retrieved.
 func (self *MessageHeader) Decode(packetData []byte) (*bytes.Buffer, error) {
-	buf := bytes.NewBuffer(packetData)
-	err := binary.Read(buf, binary.LittleEndian, self)
-	if err==nil {
-		if !self.Valid() || self.MsgType!=Message {
-			return buf, InvalidHeaderError{}
-		}
-	}
-	return buf, err
+	return decodeImpl(self, packetData)
 }
 
 func (self *RequestHeader) Decode(packetData []byte) (*bytes.Buffer, error) {
-	buf := bytes.NewBuffer(packetData)
-	err := binary.Read(buf, binary.LittleEndian, self)
-	if err==nil {
-		if !self.Valid() || self.MsgType!=Request {
-			return buf, InvalidHeaderError{}
-		}
-	}
-	return buf, err
+	return decodeImpl(self, packetData)
 }
 
 func (self *ResponseHeader) Decode(packetData []byte) (*bytes.Buffer, error) {
-	buf := bytes.NewBuffer(packetData)
-	err := binary.Read(buf, binary.LittleEndian, self)
-	if err==nil {
-		if !self.Valid() || self.MsgType!=Response {
-			return buf, InvalidHeaderError{}
-		}
-	}
-	return buf, err
+	return decodeImpl(self, packetData)
 }
 
 type InvalidHeaderError struct {
