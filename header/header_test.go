@@ -7,7 +7,7 @@ import (
 )
 
 func TestHeaderTypes(t *testing.T) {
-	const seq = uint32(23)
+	const seq = uint64(23)
 	message := MakeMessageHeader(seq)
 	request := MakeRequestHeader()
 	response := MakeResponseHeader()
@@ -87,7 +87,7 @@ func TestHeaderTypes(t *testing.T) {
 
 
 func TestMakeMessageHeader(t *testing.T) {
-	const seq = uint32(23)
+	const seq = uint64(23)
 	h := MakeMessageHeader(seq)
 
 	if !h.Valid() {

@@ -34,7 +34,7 @@ type CommonHeader struct {
 
 type MessageHeader struct {
 	CommonHeader
-	Sequence	uint32	// The sequence number of the first byte of the message
+	Sequence	uint64	// The sequence number of the first byte of the message
 }
 
 type RequestHeader struct {
@@ -45,7 +45,7 @@ type ResponseHeader struct {
 	CommonHeader
 }
 
-func MakeMessageHeader(sequence uint32) MessageHeader {
+func MakeMessageHeader(sequence uint64) MessageHeader {
 	return MessageHeader{CommonHeader{mbusSignature, Message}, sequence}
 }
 
@@ -93,7 +93,7 @@ func (self *CommonHeader) MessageType() (MessageType, error) {
 	return self.MsgType, nil
 }
 
-func (self *MessageHeader) GetSequence() (uint32, error) {
+func (self *MessageHeader) GetSequence() (uint64, error) {
 	if !self.Valid() || self.MsgType!=Message {
 		return Invalid, InvalidHeaderError{}
 	}

@@ -16,7 +16,7 @@ import (
 type Sender struct {
 	conn *net.UDPConn
 	mcast *net.UDPAddr
-	sentTo	uint32
+	sentTo	uint64
 }
 
 func NewSender(mcastAddress string) (*Sender, error) {
@@ -63,7 +63,7 @@ func (sender *Sender) Send(payload []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	sender.sentTo += uint32(len(payload))
+	sender.sentTo += uint64(len(payload))
 
 	return n, err
 }

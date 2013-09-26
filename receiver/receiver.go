@@ -1,5 +1,4 @@
 // receiver.go
-
 package receiver
 // A multicast receiver, i.e. subscriber.
 // I'm using the name receiver here because this is mostly an experiment while learning Go,
@@ -48,7 +47,7 @@ func NewReceiver(mcastAddress string) (*Receiver, error) {
 	fmt.Println("Listening for command/control responses on local address:", receiver.controlConn.LocalAddr())
 
 	// Currently there is just one channel that delivers all messages as they are received.
-	// TODO: 
+	// TODO:
 	// 1. Track unique senders
 	// 2. Track sequence numbers of packets from each sender
 	// 3. Detect dropped packets and send request for packet resend to correct sender.
@@ -111,13 +110,12 @@ func (receiver *Receiver) AnalyzeAndSequence() {
 			fmt.Println("Dropping invalid packet. Header:", head, "Error:", err)
 		} else {
 			packet.Data = buf.Bytes()
-			payloadLen := uint32(len(packet.Data))
+			payloadLen := uint64(len(packet.Data))
 
 			// this is just a hack for now
-			// TODO: implement correct wrap around logic
 			// TODO: check for missing packets
 			nextSeq := head.Sequence + payloadLen
-			senderInfo.ReceivedTo = uint64(nextSeq)
+			senderInfo.ReceivedTo = nextSeq
 
 			receiver.sequenced <- packet
 		}
