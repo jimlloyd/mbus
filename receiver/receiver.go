@@ -106,19 +106,32 @@ func (receiver *Receiver) AnalyzeAndSequence() {
 
 		buf := bytes.NewBuffer(packet.Data)
 		buf, err := head.Decode(buf.Bytes())
+		packet.Data = buf.Bytes()
+		packetLen := uint64(len(packet.Data))
+		nextPacketSeq := head.Sequence + packetLen
+
 		if err != nil {
 			fmt.Println("Dropping invalid packet. Header:", head, "Error:", err)
-		} else {
-			packet.Data = buf.Bytes()
-			payloadLen := uint64(len(packet.Data))
-
-			// this is just a hack for now
-			// TODO: check for missing packets
-			nextSeq := head.Sequence + payloadLen
-			senderInfo.ReceivedTo = nextSeq
-
+		} else if head.Sequence == senderInfo.DeliveredTo {
+			// This is the next expected packet, deliver it
+			senderInfo.DeliveredTo += packetLen
 			receiver.sequenced <- packet
+			// Now check for pending packets here
+			for held, ok := senderInfo.Holding[senderInfo.DeliveredTo]; ok; {
+				delete(senderInfo.Holding, senderInfo.DeliveredTo)
+				senderInfo.DeliveredTo += uint64(len(held.Data))
+				receiver.sequenced <- held
+			}
+		} else if senderInfo.DeliveredTo > head.Sequence {
+			// TODO: Handle the very rare case that the sender port is being
+			// reused by a new process
+			fmt.Println("Dropping duplicate packet")
+		} else if senderInfo.DeliveredTo == 0 {
+			senderInfo.DeliveredTo = nextPacketSeq
+			receiver.sequenced <- packet
+		} else {
+			// We've received a future packet that we must hold for later delivery
+			senderInfo.Holding[head.Sequence] = packet
 		}
-
 	}
 }
