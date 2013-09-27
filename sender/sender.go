@@ -68,6 +68,16 @@ func (sender *Sender) Send(payload []byte) (int, error) {
 	return n, err
 }
 
+func (sender *Sender) ChannelSender(payloads <-chan []byte) {
+	for {
+		payload := <- payloads
+		_, err := sender.Send(payload)
+		if err!=nil {
+			panic(err)
+		}
+	}
+}
+
 func (sender *Sender) serveCommand(commands <-chan packet.Packet) {
 	for {
 		packet := <-commands
