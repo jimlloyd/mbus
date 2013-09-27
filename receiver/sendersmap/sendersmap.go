@@ -5,7 +5,6 @@ package sendersmap
 
 import (
 	"sync"
-	"fmt"
 	"github.com/jimlloyd/mbus/packet"
 )
 type SenderInfo struct {
@@ -59,14 +58,11 @@ func New() *SendersMap {
 }
 
 func (self *SendersMap) Get(addr string) *SenderInfo {
-	fmt.Println("Looking up", addr, "in map with", len(self.rep), "elements")
-
 	self.lock.RLock()
 	info, ok := self.rep[addr]
 	self.lock.RUnlock()
 
 	if ok {
-		fmt.Println("Address", addr, "already in map:", info)
 		return info
 	}
 
@@ -75,7 +71,6 @@ func (self *SendersMap) Get(addr string) *SenderInfo {
 	if !ok {
 		info = &SenderInfo{addr, 0, 0, make(map[uint64]packet.Packet)}
 		self.rep[addr] = info
-		fmt.Println("Adding new address", addr, "to map:", info)
 	}
 	self.lock.Unlock()
 	return info

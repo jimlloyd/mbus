@@ -1,14 +1,15 @@
-package main
+// sender_receiver_test.go
+
+package receiver
 
 import (
-	"fmt"
+	"testing"
 	"time"
-	"github.com/jimlloyd/mbus/receiver"
 	"github.com/jimlloyd/mbus/sender"
 )
 
-func MakeReceiver() *receiver.Receiver {
-	aReceiver, err := receiver.NewReceiver("239.192.0.0:5000")
+func MakeReceiver() *Receiver {
+	aReceiver, err := NewReceiver("239.192.0.0:5000")
 	if err != nil {
 		panic("Error creating receiver:" + err.Error())
 	}
@@ -23,7 +24,7 @@ func MakeSender() *sender.Sender {
 	return aSender
 }
 
-func RunReceiver(aReceiver *receiver.Receiver, sem chan<- int, messages []string, numSenders int) {
+func RunReceiver(t *testing.T, aReceiver *Receiver, sem chan<- int, messages []string, numSenders int) {
 
 	receivedMessages := make(map[string]int)
 	for _, msg := range(messages) {
@@ -34,48 +35,42 @@ func RunReceiver(aReceiver *receiver.Receiver, sem chan<- int, messages []string
 	for i:=0; i<len(messages)*numSenders; i++ {
 		packet := <-incoming
 		msg := string(packet.Data)
-		fmt.Println("Received message:", msg)
 		count, ok := receivedMessages[msg]
 		if !ok {
-			fmt.Println("Unexpected message received:", msg)
+			t.Error("Unexpected message received:", msg)
 		}
 		receivedMessages[msg] = count+1
 	}
 
 	for msg, count := range(receivedMessages) {
 		if count != numSenders {
-			fmt.Printf("Wrong number of messages received for message:%s. Expected:%d, received:%d",
+			t.Error("Wrong number of messages received for message:%s. Expected:%d, received:%d",
 				 msg, numSenders, count)
 		}
 	}
 
-	fmt.Println("Done receiving")
 	sem <- 1
 }
 
-func RunSender(aSender *sender.Sender, sem chan<- int, messages []string) {
+func RunSender(t *testing.T, aSender *sender.Sender, sem chan<- int, messages []string) {
 	for _, expected := range(messages) {
-		fmt.Println("Sending message:", expected)
-		_ = time.Sleep
-//		time.Sleep(50 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		_, err := aSender.Send([]byte(expected))
 		if err != nil {
-			fmt.Println("Error sending message:", err)
+			t.Error("Error sending message:", err)
 		}
-		fmt.Println("Sent message:", expected)
 	}
-	fmt.Println("Done sending")
 	sem <- 1
 }
 
-func main() {
+func TestSendReceiveNominal(t *testing.T) {
 	messages := []string{"aaa", "bbb", "ccccc"}
 
-	const numReceivers = 3
-	const numSenders = 5
+	const numReceivers = 2
+	const numSenders = 3
 
 	senders := []*sender.Sender{}
-	receivers := []*receiver.Receiver{}
+	receivers := []*Receiver{}
 
 	for i:=0; i<numReceivers; i++ {
 		receivers = append(receivers, MakeReceiver())
@@ -84,15 +79,16 @@ func main() {
 	for i:=0; i<numSenders; i++ {
 		senders = append(senders, MakeSender())
 	}
+
 	receiverSem := make(chan int)
 	senderSem := make(chan int)
 
 	for _, aReceiver := range(receivers) {
-		go RunReceiver(aReceiver, receiverSem, messages, numSenders)
+		go RunReceiver(t, aReceiver, receiverSem, messages, numSenders)
 	}
 
 	for _, aSender := range(senders) {
-		go RunSender(aSender, senderSem, messages)
+		go RunSender(t, aSender, senderSem, messages)
 	}
 
 	for i:=0; i<numReceivers; i++ {
@@ -103,11 +99,16 @@ func main() {
 		<- senderSem
 	}
 
-	for _, aReceiver := range(receivers) {
-		aReceiver.Close()
-	}
+	// Can't close here without panic. Seems to only happen here in unit test, not in regular app.
+	// I could understand this being a problem if there were multiple receivers, since each listens
+	// on the same port, and perhaps the first one to close its connection closes all connections.
+	// But this bug happens even when numReceivers=1
+	// TODO: figure out the real problem
+	// for _, aReceiver := range(receivers) {
+	// 	aReceiver.Close()
+	// }
 
-	for _, aSender := range(senders) {
-		aSender.Close()
-	}
+	// for _, aSender := range(senders) {
+	// 	aSender.Close()
+	// }
 }

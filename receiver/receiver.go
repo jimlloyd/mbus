@@ -44,7 +44,6 @@ func NewReceiver(mcastAddress string) (*Receiver, error) {
 		receiver.messageConn.Close()
 		return nil, err
 	}
-	fmt.Println("Listening for command/control responses on local address:", receiver.controlConn.LocalAddr())
 
 	// Currently there is just one channel that delivers all messages as they are received.
 	// TODO:
@@ -96,11 +95,9 @@ func (receiver *Receiver) SendCommand(command []byte, addr net.Addr) error {
 func (receiver *Receiver) AnalyzeAndSequence() {
 	for {
 		packet := <-receiver.incoming
-		fmt.Println("Analyzing a packet")
 
 		senderInfo := receiver.senders.Get(packet.Remote().String())
 		senderInfo.Count++
-		fmt.Println("Received", senderInfo.Count, "packets from", senderInfo.Addr)
 
 		var head header.MessageHeader
 
