@@ -11,12 +11,15 @@ import (
 	"github.com/jimlloyd/mbus/header"
 	"github.com/jimlloyd/mbus/packet"
 	"github.com/jimlloyd/mbus/utils"
+	"github.com/jimlloyd/mbus/sender/history"
 )
 
 type Sender struct {
 	conn *net.UDPConn
 	mcast *net.UDPAddr
 	sentTo	uint64
+
+	history	*history.History
 }
 
 func NewSender(mcastAddress string) (*Sender, error) {
@@ -36,6 +39,11 @@ func NewSender(mcastAddress string) (*Sender, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	minAgeSeconds := int32(10)
+	maxAgeSeconds := int32(20)
+	maxPayloadMB := uint32(50)
+	sender.history = history.NewHistory(minAgeSeconds, maxAgeSeconds, maxPayloadMB)
 
 	commands := make(chan packet.Packet, 10)
 	go packet.Listen(sender.conn, commands)
@@ -58,6 +66,8 @@ func (sender *Sender) Send(payload []byte) (int, error) {
 
 	buf.Write(payload)
 	message := buf.Bytes()
+
+	sender.history.Add(sender.sentTo, message)
 
 	n, err := sender.conn.WriteToUDP(message, sender.mcast)
 	if err != nil {

@@ -46,7 +46,8 @@ func NewHistory(minAgeSeconds int32, maxAgeSeconds int32, maxPayloadMB uint32) (
 	return &History{[]SeqNum{}, make(map[SeqNum][]byte), make(map[SeqNum]Tick), minAge, maxAge, maxStorage }
 }
 
-func (self *History) Add(sequence SeqNum, message []byte) {
+func (self *History) Add(seq uint64, message []byte) {
+	sequence := SeqNum(seq)
 	tick := Tick(time.Now().UnixNano())
 
 	prevLen := len(self.sequences)
