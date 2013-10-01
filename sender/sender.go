@@ -92,10 +92,28 @@ func (sender *Sender) serveCommand(commands <-chan packet.Packet) {
 	for {
 		packet := <-commands
 
-		// We'll eventually respond to meaningful commands, but for now just log them.
-		fmt.Println("Received command", len(packet.Data), "bytes:", string(packet.Data),
-			"Remote:", packet.Remote())
+		messageType := header.PeekMessageType(packet.Data)
+		switch messageType {
+		case header.Invalid:
+			fmt.Println("Ignoring invalid packet received on sender command interface.")
+		case header.Request:
+			sender.serveRequest(packet)
+		case header.Response:
+			sender.serveResponse(packet)
+		default:
+			fmt.Println("Message type", messageType, "not handled in sender command handler.")
+		}
+
 	}
 }
 
+func (sender *Sender) serveRequest(request packet.Packet) {
+	// We'll eventually respond to requests, but for now just log them.
+	fmt.Println("Received request from remote:", request.Remote())
+}
+
+func (sender *Sender) serveResponse(response packet.Packet) {
+	// We'll eventually respond to responses, but for now just log them.
+	fmt.Println("Received response from remote:", response.Remote())
+}
 
