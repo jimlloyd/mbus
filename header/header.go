@@ -6,6 +6,7 @@ package header
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 const (
@@ -18,7 +19,10 @@ const (
 
 type MessageType uint16  // One of the constants above
 
-var mbusSignature = [4]byte{'m', 'b', 'u', 's'}
+const SignatureSize = 8
+type Signature [SignatureSize]byte 	 // a 4 byte 'signature' used in message encodings to indicate type/kind of messages
+
+var mbusSignature = MakeFixedSignature("gobusgo!")
 
 type MbusHeader interface {
 	Valid() bool
@@ -28,7 +32,7 @@ type MbusHeader interface {
 
 type CommonHeader struct {
 	// all fields are specified as byte arrays, with bytes in network byte order (big endian)
-	Signature	[4]byte	// a constant signature, 'mbus'
+	MbusSig		Signature	// a constant signature ('mbus') used to provide confidence that message is valid
 	MsgType		MessageType
 }
 
@@ -39,6 +43,7 @@ type MessageHeader struct {
 
 type RequestHeader struct {
 	CommonHeader
+	Verb		Signature
 }
 
 type ResponseHeader struct {
@@ -49,8 +54,8 @@ func MakeMessageHeader(sequence uint64) MessageHeader {
 	return MessageHeader{CommonHeader{mbusSignature, Message}, sequence}
 }
 
-func MakeRequestHeader() RequestHeader {
-	return RequestHeader{CommonHeader{mbusSignature, Request}}
+func MakeRequestHeader(verb Signature) RequestHeader {
+	return RequestHeader{CommonHeader{mbusSignature, Request}, verb}
 }
 
 func MakeResponseHeader() ResponseHeader {
@@ -71,19 +76,19 @@ func PeekMessageType(packetData []byte) MessageType {
 }
 
 func (self *CommonHeader) Valid() bool {
-	return self.Signature == mbusSignature
+	return self.MbusSig == mbusSignature
 }
 
 func (self *MessageHeader) Valid() bool {
-	return self.Signature == mbusSignature && self.MsgType == Message
+	return self.MbusSig == mbusSignature && self.MsgType == Message
 }
 
 func (self *RequestHeader) Valid() bool {
-	return self.Signature == mbusSignature && self.MsgType == Request
+	return self.MbusSig == mbusSignature && self.MsgType == Request
 }
 
 func (self *ResponseHeader) Valid() bool {
-	return self.Signature == mbusSignature && self.MsgType == Response
+	return self.MbusSig == mbusSignature && self.MsgType == Response
 }
 
 func (self *CommonHeader) MessageType() (MessageType, error) {
@@ -106,6 +111,9 @@ func encodeImpl(self MbusHeader) (*bytes.Buffer, error) {
 		return buf, InvalidHeaderError{}
 	}
 	err := binary.Write(buf, binary.LittleEndian, self)
+	if err != nil {
+		fmt.Println("encodeImp failed with err:", err)
+	}
 	return buf, err
 }
 
@@ -116,7 +124,15 @@ func (self *MessageHeader) Encode() (*bytes.Buffer, error) {
 }
 
 func (self *RequestHeader) Encode() (*bytes.Buffer, error) {
-	return encodeImpl(self)
+	buf := new(bytes.Buffer)
+	if !self.Valid() {
+		return buf, InvalidHeaderError{}
+	}
+	err := binary.Write(buf, binary.LittleEndian, self)
+	if err != nil {
+		fmt.Println("RequestHeader.Encode() failed with err:", err)
+	}
+	return buf, err
 }
 
 func (self *ResponseHeader) Encode() (*bytes.Buffer, error) {
@@ -155,4 +171,25 @@ func (InvalidHeaderError) Error() string {
 	return "Not a valid mbus header"
 }
 
+func MakeRequest(verb Signature, parameters []byte) ([]byte, error) {
+	h := MakeRequestHeader(verb)
+	buf, err := h.Encode()
+	if err != nil {
+		fmt.Println("Failed to encode request:", err)
+		return nil, err
+	}
+	buf.Write(parameters)
+	return buf.Bytes(), nil
+}
+
+func MakeFixedSignature(s string) Signature {
+	var sig Signature
+	if len(s) != SignatureSize {
+		panic("Convenience function MakeFixedSignature must be called with ascii string exactly 8 chars long.")
+	}
+	for i:=0; i<SignatureSize; i++ {
+		sig[i] = s[i]
+	}
+	return sig
+}
 

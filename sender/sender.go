@@ -109,7 +109,13 @@ func (sender *Sender) serveCommand(commands <-chan packet.Packet) {
 
 func (sender *Sender) serveRequest(request packet.Packet) {
 	// We'll eventually respond to requests, but for now just log them.
-	fmt.Println("Received request from remote:", request.Remote())
+	var h header.RequestHeader
+	_, err := h.Decode(request.Data)
+	if err != nil {
+		fmt.Println("Failed to decode request. Err:", err)
+	}
+
+	fmt.Println("Received request", h.Verb, "from remote:", request.Remote())
 }
 
 func (sender *Sender) serveResponse(response packet.Packet) {

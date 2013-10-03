@@ -9,7 +9,7 @@ import (
 func TestHeaderTypes(t *testing.T) {
 	const seq = uint64(23)
 	message := MakeMessageHeader(seq)
-	request := MakeRequestHeader()
+	request := MakeRequestHeader(MakeFixedSignature("Resend.."))
 	response := MakeResponseHeader()
 
 	if !message.Valid() {
@@ -125,7 +125,7 @@ func TestMakeMessageHeader(t *testing.T) {
 		t.Fail()
 	}
 
-	x.Signature = [4]byte{23} // just some invalid signature
+	x.MbusSig = Signature{23} // just some invalid signature
 	if x.Valid() {
 		t.Error("Header with invalid Signature is considered valid")
 	}
@@ -135,7 +135,7 @@ func TestMakeMessageHeader(t *testing.T) {
 		t.Error("Header with invalid Signature encodes without returning an error")
 	}
 
-	x.Signature = mbusSignature // restore the signature so following tests only test MsgType
+	x.MbusSig = mbusSignature // restore the signature so following tests only test MsgType
 
 	x.MsgType = 99 // just some invalid value
 	if x.Valid() {

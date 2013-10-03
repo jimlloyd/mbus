@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jimlloyd/mbus/header"
 	"github.com/jimlloyd/mbus/receiver"
 )
 
@@ -29,10 +30,16 @@ func main() {
 		packet := <-incoming
 		fmt.Println("Read", len(packet.Data), "bytes:", string(packet.Data), "Remote:",
 			packet.Remote())
-		
-		err := receiver.SendCommand([]byte("Dummy command"), packet.Remote())
+
+		dummy := header.MakeFixedSignature("DummyMsg")
+		req, err := header.MakeRequest(dummy, []byte{})
 		if err != nil {
-			fmt.Println("Command not sent, error:", err)
+			fmt.Println("Could not make request:", err)
+		} else {
+			err = receiver.SendCommand(req, packet.Remote())
+			if err != nil {
+				fmt.Println("Command not sent, error:", err)
+			}
 		}
 	}
 }
